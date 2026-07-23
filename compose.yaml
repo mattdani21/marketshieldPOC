@@ -1,0 +1,14 @@
+services:
+  marketshield:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      MARKETSHIELD_BIND: 0.0.0.0:8080
+      MARKETSHIELD_DATABASE_URL: sqlite://data/marketshield.db
+      RUST_LOG: marketshield=info,tower_http=info
+    volumes:
+      - marketshield-data:/app/data
+
+volumes:
+  marketshield-data:
