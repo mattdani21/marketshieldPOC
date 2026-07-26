@@ -1,0 +1,67 @@
+name: competitive-watch
+
+# The standing check. Code CI answers "does it still build"; this answers "are
+# we still competitive". A failing run means our position moved against us by
+# more than the configured threshold.
+#
+# Scope note: this repository has no persistent database, so each run seeds a
+# fresh one and re-detects the same seeded decline. That demonstrates the
+# mechanism rather than tracking real drift. Pointed at the pilot's persistent
+# database via MARKETSHIELD_DATABASE_URL, the exit code becomes meaningful:
+# each run compares against the position recorded by the previous run.
+# Pull requests therefore publish the report without failing the build.
+on:
+  schedule:
+    # 05:00 UTC daily, ahead of the South African business day.
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "migrations/**"
+      - ".github/workflows/competitive-watch.yml"
+
+jobs:
+  position:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the monitor
+        run: cargo build --bin monitor
+
+      - name: Check competitive position
+        id: monitor
+        # A breach is the signal, not an infrastructure failure, so the report is
+        # published either way and the outcome is acted on below.
+        continue-on-error: true
+        env:
+          MARKETSHIELD_DATABASE_URL: sqlite://data/marketshield.db
+          # On a pull request the seeded decline is expected, so it is reported
+          # rather than enforced.
+          ALLOW_BREACH: ${{ github.event_name == 'pull_request' && '--allow-breach' || '' }}
+        run: |
+          mkdir -p data
+          cargo run --quiet --bin monitor -- \
+            --report competitive-position.md \
+            --trigger "github_actions_${{ github.event_name }}" \
+            $ALLOW_BREACH
+
+      - name: Publish report to the run summary
+        if: always()
+        run: cat competitive-position.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitive-position-report
+          path: competitive-position.md
+
+      - name: Fail when the position moved against us
+        if: steps.monitor.outcome == 'failure'
+        run: |
+          echo "::error::Competitive position breached a monitoring threshold. See the run summary."
+          exit 1

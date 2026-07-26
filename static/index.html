@@ -5,25 +5,359 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MarketShield AI</title>
 <style>
-:root{--bg:#07111f;--panel:#10233a;--line:#29445f;--text:#f3f7fd;--muted:#9db1c8;--accent:#59d4bf;--good:#72e0a2;--warn:#f0c65a;--bad:#ff8585}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}.app{max-width:1200px;margin:auto;padding:24px}.banner,.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:16px}.banner{background:#2a2513;color:#ebd89a;margin-bottom:16px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.muted{color:var(--muted)}.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(4,1fr);margin:18px 0}.two{grid-template-columns:1fr 1fr}.kpi b{font-size:26px;display:block}.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:#061510;font-weight:800;cursor:pointer}.btn.secondary{background:#203a57;color:var(--text);border:1px solid var(--line)}.signal,.row{border-top:1px solid var(--line);padding:10px 0}.tag{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:3px 8px;font-size:11px}.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}.steps{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.step{border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted)}.step.done{color:var(--good);border-color:var(--good)}@media(max-width:800px){.kpis,.two{grid-template-columns:1fr}.top{align-items:flex-start}}
+:root{--bg:#07111f;--panel:#10233a;--line:#29445f;--text:#f3f7fd;--muted:#9db1c8;--accent:#59d4bf;--good:#72e0a2;--warn:#f0c65a;--bad:#ff8585}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+.app{max-width:1200px;margin:auto;padding:24px}
+.banner,.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:16px}
+.banner{background:#2a2513;color:#ebd89a;margin-bottom:16px}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(4,1fr);margin:18px 0}
+.two{grid-template-columns:1fr 1fr}
+.kpi b{font-size:26px;display:block}
+.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:#061510;font-weight:800;cursor:pointer}
+.btn.secondary{background:#203a57;color:var(--text);border:1px solid var(--line)}
+.signal,.row{border-top:1px solid var(--line);padding:10px 0}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:3px 8px;font-size:11px}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.step{border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted)}
+.step.done{color:var(--good);border-color:var(--good)}
+.wide{grid-column:1/-1}
+.scroll{overflow-x:auto}
+.us{background:rgba(89,212,191,.10)}
+.best{color:var(--good);font-weight:700}
+.spark{display:flex;align-items:flex-end;gap:6px;height:70px;margin:10px 0}
+.spark div{flex:1;background:#203a57;border-radius:4px 4px 0 0;position:relative;min-height:2px}
+.spark div.last{background:var(--bad)}
+.spark span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted)}
+select{background:#203a57;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
+.finding{border-left:3px solid var(--line);padding:6px 0 6px 10px;margin:8px 0}
+.finding.high{border-color:var(--bad)}
+.finding.medium{border-color:var(--warn)}
+@media(max-width:900px){.kpis,.two{grid-template-columns:1fr}.top{align-items:flex-start}}
 </style>
 </head>
 <body><main class="app">
-<div class="banner"><b>Fictional demonstration.</b> All data and financial values are synthetic.</div>
-<header class="top"><div><div class="good">CAPE MERIDIAN LIFE & INVESTMENTS</div><h1>MarketShield AI</h1><p class="muted">Rust market-share defence POC</p></div><button class="btn secondary" onclick="loadAll()">Refresh</button></header>
-<section class="grid kpis" id="kpis"><div class="card muted">Loading dashboard…</div></section>
+<div class="banner"><b>Fictional demonstration.</b> All providers, values and financial figures are synthetic.</div>
+
+<header class="top">
+  <div>
+    <div class="good">CAPE MERIDIAN LIFE &amp; INVESTMENTS</div>
+    <h1>MarketShield AI</h1>
+    <p class="muted">Competitive position monitoring and market-share defence</p>
+  </div>
+  <div class="top" style="gap:8px">
+    <select id="line"></select>
+    <button class="btn secondary" onclick="loadAll()">Refresh</button>
+  </div>
+</header>
+
+<section class="grid kpis" id="kpis"><div class="card muted">Loading…</div></section>
+
 <section class="grid two">
-<div class="card"><h2>Agent analysis</h2><p class="muted">Observe → enrich → diagnose → simulate → govern → measure</p><div class="steps" id="steps"></div><button class="btn" id="analyse">Run analysis</button><p id="finding" class="muted"></p></div>
-<div class="card"><h2>Signal inbox</h2><div id="signals"></div></div>
-<div class="card"><h2>Root-cause diagnosis</h2><div id="hypotheses"></div></div>
-<div class="card"><h2>Evidence and governance</h2><div id="evidence"></div><div id="checks"></div></div>
-<div class="card"><h2>Scenario lab</h2><p class="muted">Evaluate the recommended rapid-underwriting response.</p><button class="btn" id="scenario">Evaluate scenario</button><h3 id="scenarioName"></h3><table><tbody id="metrics"></tbody></table></div>
-<div class="card"><h2>Human approval</h2><div id="approvals"></div><button class="btn secondary" id="approve">Approve current gate</button></div>
+
+  <div class="card wide">
+    <div class="top">
+      <div>
+        <h2 style="margin:0">Where we stand</h2>
+        <p class="muted" id="positionSummary">Loading…</p>
+      </div>
+      <button class="btn" id="runMonitor">Run competitive check</button>
+    </div>
+    <div class="spark" id="trend"></div>
+    <p class="muted" id="trendCaption"></p>
+    <div id="monitorResult"></div>
+  </div>
+
+  <div class="card wide">
+    <h2>What we offer versus competitors</h2>
+    <p class="muted">Bold is the best value on each dimension. Weight is the dimension's importance in the position score.</p>
+    <div class="scroll"><table><thead id="matrixHead"></thead><tbody id="matrixBody"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2>Largest deficits</h2>
+    <p class="muted">Ranked by weighted score deficit — the answer to "why are we losing".</p>
+    <div id="gaps"></div>
+  </div>
+
+  <div class="card">
+    <h2>Recorded competitor moves</h2>
+    <p class="muted">Value changes with their published source.</p>
+    <div id="moves"></div>
+  </div>
+
+  <div class="card">
+    <h2>Agent analysis</h2>
+    <p class="muted">Observe → enrich → diagnose → simulate → govern → measure</p>
+    <div class="steps" id="steps"></div>
+    <button class="btn" id="analyse">Run analysis</button>
+    <p id="finding" class="muted"></p>
+  </div>
+
+  <div class="card">
+    <h2>Signal inbox</h2>
+    <div id="signals"></div>
+  </div>
+
+  <div class="card">
+    <h2>Root-cause diagnosis</h2>
+    <div id="hypotheses"></div>
+  </div>
+
+  <div class="card">
+    <h2>Evidence and governance</h2>
+    <div id="evidence"></div>
+    <div id="checks"></div>
+  </div>
+
+  <div class="card">
+    <h2>Scenario lab</h2>
+    <p class="muted">Evaluate a response template against the selected case.</p>
+    <select id="scenarioKind"></select>
+    <button class="btn" id="scenario">Evaluate</button>
+    <h3 id="scenarioName"></h3>
+    <p class="muted" id="scenarioNarrative"></p>
+    <table><tbody id="metrics"></tbody></table>
+    <div id="stresses"></div>
+  </div>
+
+  <div class="card">
+    <h2>Human approval</h2>
+    <div id="approvals"></div>
+    <button class="btn secondary" id="approve">Approve current gate</button>
+  </div>
+
 </section>
 </main>
 <script>
-const CASE='MS-2026-017',steps=['Observe','Enrich','Diagnose','Simulate','Govern','Measure'];
-const $=id=>document.getElementById(id);async function api(path,options={}){const r=await fetch('/api'+path,{headers:{'Content-Type':'application/json'},...options});if(!r.ok)throw new Error(await r.text());return r.json()}function statusClass(s){return ['pass','approved','admitted','viable'].includes(s)?'good':['review','pending'].includes(s)?'warn':'bad'}
-async function loadAll(){try{const [d,c]=await Promise.all([api('/dashboard'),api('/cases/'+CASE)]);$('kpis').innerHTML=`<div class="card kpi"><span class="muted">Segment share</span><b>${d.estimated_segment_share_pct.toFixed(1)}%</b><span class="bad">${d.share_change_pp.toFixed(1)} pp</span></div><div class="card kpi"><span class="muted">Premium at risk</span><b>R${d.annual_premium_at_risk_m.toFixed(0)}m</b></div><div class="card kpi"><span class="muted">Quote conversion</span><b>${d.quote_conversion_pct.toFixed(1)}%</b><span class="bad">${d.conversion_change_pp.toFixed(1)} pp</span></div><div class="card kpi"><span class="muted">Open cases</span><b>${d.open_cases}</b></div>`;$('signals').innerHTML=d.signals.map(x=>`<div class="signal"><b>${x.title}</b><div class="muted">${x.description}</div></div>`).join('');$('hypotheses').innerHTML=c.hypotheses.map(x=>`<div class="row"><b>${x.rank}. ${x.name}</b> <span class="good">${x.confidence_pct.toFixed(0)}%</span><div class="muted">${x.explanation}</div></div>`).join('');$('evidence').innerHTML=c.evidence.map(x=>`<div class="row"><b>${x.label}</b> <span class="tag ${statusClass(x.admission_status)}">${x.admission_status}</span></div>`).join('');$('checks').innerHTML=c.governance_checks.map(x=>`<div class="row"><b>${x.name}</b> <span class="tag ${statusClass(x.status)}">${x.status}</span><div class="muted">${x.rationale}</div></div>`).join('');$('approvals').innerHTML=c.approvals.map(x=>`<div class="row"><b>${x.sequence}. ${x.role_name}</b> <span class="tag ${statusClass(x.status)}">${x.status}</span></div>`).join('')}catch(e){alert(e.message)}}
-$('steps').innerHTML=steps.map(x=>`<span class="step">${x}</span>`).join('');$('analyse').onclick=async()=>{const nodes=[...document.querySelectorAll('.step')];nodes.forEach(n=>n.classList.remove('done'));for(const n of nodes){await new Promise(r=>setTimeout(r,180));n.classList.add('done')}const r=await api('/cases/'+CASE+'/analyse',{method:'POST'});$('finding').textContent=r.primary_finding};$('scenario').onclick=async()=>{const r=await api('/scenarios/evaluate',{method:'POST',body:JSON.stringify({case_id:CASE,kind:'rapid_underwriting',overrides:{}})});$('scenarioName').textContent=r.name+' — '+r.recommendation_status;$('metrics').innerHTML=r.metrics.map(m=>`<tr><td>${m.label}</td><td>${m.scenario.toFixed(1)} ${m.unit}</td></tr>`).join('')};$('approve').onclick=async()=>{await api('/cases/'+CASE+'/approvals/advance',{method:'POST',body:JSON.stringify({decision:'approve',notes:'Approved in sponsor demo'})});loadAll()};loadAll();
+const $ = id => document.getElementById(id);
+const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const num = (value, digits = 2) => Number(value).toFixed(digits).replace(/\.00$/, '');
+
+// Response templates, keyed by the product line they apply to.
+const SCENARIOS = {
+  retirement_annuity: [
+    ['ra_fee_restructure', 'Fee restructure'],
+    ['ra_transfer_turnaround', 'Transfer turnaround'],
+    ['ra_fund_range_expansion', 'Fund range expansion'],
+    ['observe_only', 'No material change']
+  ],
+  individual_life_risk: [
+    ['rapid_underwriting', 'Rapid underwriting'],
+    ['targeted_premium_reduction', 'Targeted premium reduction'],
+    ['benefit_rewards_bundle', 'Benefit and rewards bundle'],
+    ['observe_only', 'No material change']
+  ]
+};
+
+const state = { line: null, caseId: null };
+
+async function api(path, options = {}) {
+  const response = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || response.statusText);
+  return response.json();
+}
+
+function statusClass(value) {
+  if (['pass', 'approved', 'admitted', 'viable', 'completed'].includes(value)) return 'good';
+  if (['review', 'pending', 'conditional', 'medium'].includes(value)) return 'warn';
+  return 'bad';
+}
+
+async function loadLines() {
+  const lines = await api('/product-lines');
+  $('line').innerHTML = lines.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+  // Default to the line the sponsor question is about.
+  state.line = lines.some(l => l.id === 'retirement_annuity') ? 'retirement_annuity' : lines[0].id;
+  $('line').value = state.line;
+}
+
+function renderKpis(matrix, dashboard) {
+  const p = matrix.our_position;
+  $('kpis').innerHTML = `
+    <div class="card kpi"><span class="muted">Competitive position</span><b>${num(p.position_score, 1)}</b><span class="muted">rank ${p.rank} of ${p.provider_count}</span></div>
+    <div class="card kpi"><span class="muted">Behind leader</span><b class="bad">${num(p.score_behind_leader, 1)}</b><span class="muted">${esc(p.leader_name)}</span></div>
+    <div class="card kpi"><span class="muted">Premium at risk</span><b>R${num(dashboard.annual_premium_at_risk_m, 0)}m</b></div>
+    <div class="card kpi"><span class="muted">Open cases</span><b>${dashboard.open_cases}</b></div>`;
+}
+
+function renderMatrix(matrix) {
+  const columns = matrix.standings;
+  $('matrixHead').innerHTML = `<tr><th>Dimension</th><th class="num">Weight</th>` +
+    columns.map(c => `<th class="num ${c.is_us ? 'us' : ''}">${esc(c.competitor_name)}</th>`).join('') + `</tr>`;
+
+  const rows = matrix.features.map(feature => {
+    const cells = columns.map(column => {
+      const provider = feature.providers.find(p => p.competitor_id === column.competitor_id);
+      if (!provider) return `<td class="num ${column.is_us ? 'us' : ''}">—</td>`;
+      const value = num(provider.value);
+      return `<td class="num ${column.is_us ? 'us' : ''} ${provider.is_best ? 'best' : ''}" title="${esc(provider.source_reference)}">${value}</td>`;
+    }).join('');
+    const better = feature.direction === 'lower_is_better' ? 'lower is better' : 'higher is better';
+    return `<tr><td><b>${esc(feature.name)}</b><div class="muted">${esc(feature.unit)} · ${better}</div></td><td class="num">${num(feature.weight, 1)}</td>${cells}</tr>`;
+  }).join('');
+
+  const totals = columns.map(c => `<td class="num ${c.is_us ? 'us' : ''}"><b>${num(c.position_score, 1)}</b></td>`).join('');
+  $('matrixBody').innerHTML = rows + `<tr><td><b>Weighted position</b></td><td></td>${totals}</tr>`;
+}
+
+function renderGaps(matrix) {
+  const gaps = matrix.our_position.largest_gaps;
+  $('gaps').innerHTML = gaps.length
+    ? gaps.map(g => `<div class="row"><b>${esc(g.feature_name)}</b>
+        <div class="muted">We are at <span class="bad">${num(g.our_value)} ${esc(g.unit)}</span> against
+        <span class="good">${num(g.best_value)} ${esc(g.unit)}</span> at ${esc(g.best_provider)} · weight ${num(g.weight, 1)}</div></div>`).join('')
+    : '<p class="muted">No dimension where we trail the best provider.</p>';
+}
+
+function renderMoves(matrix) {
+  const moves = matrix.recent_moves.slice(0, 8);
+  $('moves').innerHTML = moves.length
+    ? moves.map(m => `<div class="row"><b>${esc(m.competitor_name)}</b> — ${esc(m.feature_name)}
+        <div class="muted">${num(m.previous_value)} → <span class="${m.favourable_to_them ? 'bad' : 'good'}">${num(m.current_value)}</span> ${esc(m.unit)}
+        on ${esc(m.changed_at.slice(0, 10))}<br>Source: ${esc(m.source_reference)}</div></div>`).join('')
+    : '<p class="muted">No recorded changes.</p>';
+}
+
+function renderTrend(history, current) {
+  const points = history.map(s => ({ at: s.captured_at.slice(0, 10), score: s.position_score }));
+  if (!points.length) { $('trend').innerHTML = ''; return; }
+  const max = Math.max(...points.map(p => p.score), 1);
+  $('trend').innerHTML = points.map((p, i) =>
+    `<div class="${i === points.length - 1 ? 'last' : ''}" style="height:${Math.max(2, (p.score / max) * 100)}%" title="${p.at}: ${num(p.score, 1)}"><span>${num(p.score, 1)}</span></div>`
+  ).join('');
+  const first = points[0], last = points[points.length - 1];
+  const delta = last.score - first.score;
+  $('trendCaption').innerHTML = `Recorded position from ${first.at} to ${last.at}: ` +
+    `<span class="${delta < 0 ? 'bad' : 'good'}">${delta >= 0 ? '+' : ''}${num(delta, 1)} points</span>. ` +
+    `Current ${num(current, 1)}.`;
+}
+
+async function loadCase(caseId) {
+  const detail = await api('/cases/' + caseId);
+  $('hypotheses').innerHTML = detail.hypotheses.map(h =>
+    `<div class="row"><b>${h.rank}. ${esc(h.name)}</b> <span class="good">${num(h.confidence_pct, 0)}%</span>
+     <div class="muted">${esc(h.explanation)}</div></div>`).join('') || '<p class="muted">No diagnosis recorded.</p>';
+  $('evidence').innerHTML = detail.evidence.map(e =>
+    `<div class="row"><b>${esc(e.label)}</b> <span class="tag ${statusClass(e.admission_status)}">${esc(e.admission_status)}</span>
+     <div class="muted">${esc(e.detail)}</div></div>`).join('');
+  $('checks').innerHTML = detail.governance_checks.map(c =>
+    `<div class="row"><b>${esc(c.name)}</b> <span class="tag ${statusClass(c.status)}">${esc(c.status)}</span>
+     <div class="muted">${esc(c.rationale)}</div></div>`).join('');
+  $('approvals').innerHTML = detail.approvals.map(a =>
+    `<div class="row"><b>${a.sequence}. ${esc(a.role_name)}</b> <span class="tag ${statusClass(a.status)}">${esc(a.status)}</span></div>`).join('');
+}
+
+async function loadAll() {
+  try {
+    state.line = $('line').value || state.line;
+    const [dashboard, matrix, history, cases] = await Promise.all([
+      api('/dashboard'),
+      api('/comparison/' + state.line),
+      api('/comparison/' + state.line + '/history'),
+      api('/cases')
+    ]);
+
+    const p = matrix.our_position;
+    $('positionSummary').innerHTML =
+      `We rank <b>${p.rank} of ${p.provider_count}</b> on ${matrix.features.length} tracked dimensions, ` +
+      `<span class="bad">${num(p.score_behind_leader, 1)} points</span> behind <b>${esc(p.leader_name)}</b>.`;
+
+    renderKpis(matrix, dashboard);
+    renderMatrix(matrix);
+    renderGaps(matrix);
+    renderMoves(matrix);
+    renderTrend(history, p.position_score);
+
+    $('signals').innerHTML = dashboard.signals.slice(0, 8).map(s =>
+      `<div class="signal"><b>${esc(s.title)}</b> <span class="tag ${statusClass(s.severity)}">${esc(s.severity)}</span>
+       <div class="muted">${esc(s.description)}</div></div>`).join('');
+
+    // Follow the selected product line to its open case.
+    const forLine = cases.find(c => c.product_line_id === state.line && c.status === 'open') || cases[0];
+    state.caseId = forLine ? forLine.id : null;
+    $('scenarioKind').innerHTML = (SCENARIOS[state.line] || SCENARIOS.retirement_annuity)
+      .map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+
+    if (state.caseId) await loadCase(state.caseId);
+  } catch (error) {
+    $('positionSummary').innerHTML = `<span class="bad">${esc(error.message)}</span>`;
+  }
+}
+
+$('line').onchange = loadAll;
+
+$('runMonitor').onclick = async () => {
+  $('monitorResult').innerHTML = '<p class="muted">Checking…</p>';
+  try {
+    const run = await api('/monitor/run', { method: 'POST', body: JSON.stringify({ trigger: 'ui' }) });
+    const findings = run.findings.length
+      ? run.findings.map(f => `<div class="finding ${esc(f.severity)}"><b>${esc(f.headline)}</b>
+          <div class="muted">${esc(f.detail)}</div></div>`).join('')
+      : '<p class="muted">No competitive drift since the previous check.</p>';
+    const opened = run.cases_opened.length
+      ? `<p class="warn">Opened ${run.cases_opened.map(esc).join(', ')} for human diagnosis.</p>` : '';
+    $('monitorResult').innerHTML =
+      `<p class="${run.breached ? 'bad' : 'good'}"><b>${run.breached ? 'Threshold breached' : 'No threshold breached'}</b></p>${findings}${opened}`;
+    await loadAll();
+  } catch (error) {
+    $('monitorResult').innerHTML = `<p class="bad">${esc(error.message)}</p>`;
+  }
+};
+
+const steps = ['Observe', 'Enrich', 'Diagnose', 'Simulate', 'Govern', 'Measure'];
+$('steps').innerHTML = steps.map(s => `<span class="step">${s}</span>`).join('');
+
+$('analyse').onclick = async () => {
+  if (!state.caseId) return;
+  const nodes = [...document.querySelectorAll('.step')];
+  nodes.forEach(n => n.classList.remove('done'));
+  for (const node of nodes) { await new Promise(r => setTimeout(r, 160)); node.classList.add('done'); }
+  const result = await api('/cases/' + state.caseId + '/analyse', { method: 'POST' });
+  $('finding').textContent = result.primary_finding;
+};
+
+$('scenario').onclick = async () => {
+  if (!state.caseId) return;
+  try {
+    const result = await api('/scenarios/evaluate', {
+      method: 'POST',
+      body: JSON.stringify({ case_id: state.caseId, kind: $('scenarioKind').value, overrides: {} })
+    });
+    $('scenarioName').innerHTML = `${esc(result.name)} — <span class="tag ${statusClass(result.recommendation_status)}">${esc(result.recommendation_status)}</span>`;
+    $('scenarioNarrative').textContent = result.narrative;
+    $('metrics').innerHTML = result.metrics.map(m =>
+      `<tr><td>${esc(m.label)}</td><td class="num">${num(m.baseline)}</td><td class="num"><b>${num(m.scenario)}</b></td><td class="muted">${esc(m.unit)}</td></tr>`).join('');
+    $('stresses').innerHTML = result.stresses.map(s =>
+      `<div class="row"><span class="tag ${statusClass(s.status)}">${esc(s.status)}</span> <b>${esc(s.name)}</b>
+       <div class="muted">${esc(s.rationale)}</div></div>`).join('');
+  } catch (error) {
+    $('scenarioName').innerHTML = `<span class="bad">${esc(error.message)}</span>`;
+    $('scenarioNarrative').textContent = '';
+    $('metrics').innerHTML = '';
+    $('stresses').innerHTML = '';
+  }
+};
+
+$('approve').onclick = async () => {
+  if (!state.caseId) return;
+  try {
+    await api('/cases/' + state.caseId + '/approvals/advance', {
+      method: 'POST',
+      body: JSON.stringify({ decision: 'approve', notes: 'Approved in sponsor demonstration' })
+    });
+    await loadCase(state.caseId);
+  } catch (error) {
+    alert(error.message);
+  }
+};
+
+loadLines().then(loadAll);
 </script></body></html>

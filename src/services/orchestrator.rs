@@ -57,7 +57,9 @@ pub async fn run_case_analysis(
         steps,
     };
 
-    result.run_id = repository.save_agent_run(case_id, "completed", &result).await?;
+    result.run_id = repository
+        .save_agent_run(case_id, "completed", &result)
+        .await?;
     repository
         .record_audit(
             Some(case_id),

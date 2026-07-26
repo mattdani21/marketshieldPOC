@@ -1,25 +1,7 @@
-mod app;
-mod config;
-mod db;
-mod error;
-mod models;
-mod repository;
-mod routes;
-mod services;
-
-use std::sync::Arc;
-
-use config::Config;
-use db::connect;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{app::build_router, repository::Repository};
-
-#[derive(Clone)]
-pub struct AppState {
-    pub repository: Arc<Repository>,
-}
+use marketshield::{app::build_router, build_state, config::Config, ensure_baseline_monitor_run};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,11 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = Config::from_env()?;
-    let pool = connect(&config.database_url).await?;
-    let repository = Arc::new(Repository::new(pool));
-    repository.seed_demo_data().await?;
+    let state = build_state(&config.database_url).await?;
+    ensure_baseline_monitor_run(&state).await?;
 
-    let state = AppState { repository };
     let app = build_router(state);
     let listener = tokio::net::TcpListener::bind(&config.bind).await?;
 

@@ -1,11 +1,15 @@
 mod approvals;
 mod audit;
 mod cases;
+mod competitive;
 mod dashboard;
 mod health;
 mod scenarios;
 
-use axum::{Router, routing::{get, post}};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 use crate::AppState;
 
@@ -24,4 +28,16 @@ pub fn router() -> Router<AppState> {
             post(approvals::advance_approval),
         )
         .route("/audit", get(audit::list_audit))
+        .route("/product-lines", get(competitive::list_product_lines))
+        .route("/competitors", get(competitive::list_competitors))
+        .route(
+            "/comparison/{product_line_id}",
+            get(competitive::comparison_matrix),
+        )
+        .route(
+            "/comparison/{product_line_id}/history",
+            get(competitive::position_history),
+        )
+        .route("/observations", post(competitive::record_observation))
+        .route("/monitor/run", post(competitive::run_monitor))
 }
