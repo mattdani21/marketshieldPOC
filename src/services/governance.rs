@@ -11,7 +11,9 @@ pub fn governance_stresses(evaluation: &ScenarioEvaluation) -> Vec<StressResult>
     stresses.push(StressResult {
         name: "Competition-information provenance".to_string(),
         status: "pass".to_string(),
-        rationale: "Scenario evaluation is based only on admitted public or approved internal evidence.".to_string(),
+        rationale:
+            "Scenario evaluation is based only on admitted public or approved internal evidence."
+                .to_string(),
     });
     stresses.push(StressResult {
         name: "Independent model validation".to_string(),

@@ -10,9 +10,7 @@ use crate::{
     services::orchestrator,
 };
 
-pub async fn list_cases(
-    State(state): State<AppState>,
-) -> Result<Json<Vec<MarketCase>>, AppError> {
+pub async fn list_cases(State(state): State<AppState>) -> Result<Json<Vec<MarketCase>>, AppError> {
     Ok(Json(state.repository.list_cases().await?))
 }
 

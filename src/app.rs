@@ -12,8 +12,8 @@ use crate::{AppState, routes};
 
 pub fn build_router(state: AppState) -> Router {
     let api = routes::router();
-    let static_files = ServeDir::new("static")
-        .not_found_service(ServeFile::new("static/index.html"));
+    let static_files =
+        ServeDir::new("static").not_found_service(ServeFile::new("static/index.html"));
 
     Router::new()
         .nest("/api", api)

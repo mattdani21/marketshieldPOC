@@ -11,12 +11,14 @@ use crate::{
     repository::now_rfc3339,
 };
 
-const ANNUAL_QUOTED_PREMIUM_M: f64 = 2_187.0;
+/// Fallback quoted-premium base for cases seeded before the column existed.
+const DEFAULT_ANNUAL_QUOTED_PREMIUM_M: f64 = 2_187.0;
 
 struct Template {
     conversion_gain_pp: f64,
     uptake_pct: f64,
     margin_pct: f64,
+    baseline_margin_pct: f64,
     claims_index: f64,
     capital_ratio: f64,
     growth_score: u8,
@@ -35,6 +37,18 @@ pub fn evaluate(
         return Err(AppError::BadRequest(
             "request case_id does not match the loaded case".to_string(),
         ));
+    }
+
+    if let (Some(template_line), Some(case_line)) = (
+        request.kind.product_line_id(),
+        case.product_line_id.as_deref(),
+    ) && template_line != case_line
+    {
+        return Err(AppError::BadRequest(format!(
+            "response template {} applies to {template_line}, but case {} is a {case_line} case",
+            request.kind.as_str(),
+            case.id
+        )));
     }
 
     let template = template(request.kind);
@@ -60,9 +74,15 @@ pub fn evaluate(
     validate_range("new_business_margin_pct", margin_pct, -20.0, 50.0)?;
     validate_range("claims_index", claims_index, 50.0, 200.0)?;
 
+    let quoted_premium_base_m = if case.annual_quoted_premium_m > 0.0 {
+        case.annual_quoted_premium_m
+    } else {
+        DEFAULT_ANNUAL_QUOTED_PREMIUM_M
+    };
+
     let scenario_conversion = case.conversion_current_pct + conversion_gain_pp;
     let annualised_nbp_uplift_m =
-        ANNUAL_QUOTED_PREMIUM_M * (conversion_gain_pp / 100.0) * (uptake_pct / 100.0);
+        quoted_premium_base_m * (conversion_gain_pp / 100.0) * (uptake_pct / 100.0);
     let vnb_uplift_m = annualised_nbp_uplift_m * (margin_pct / 100.0);
     let capital_strain_m = annualised_nbp_uplift_m * template.capital_ratio;
 
@@ -91,7 +111,7 @@ pub fn evaluate(
         metric(
             "margin",
             "New-business margin",
-            14.8,
+            template.baseline_margin_pct,
             margin_pct,
             "percent",
         ),
@@ -112,7 +132,10 @@ pub fn evaluate(
     ];
 
     let stresses = stress_results(request.kind, margin_pct, claims_index);
-    let failed = stresses.iter().filter(|stress| stress.status == "fail").count();
+    let failed = stresses
+        .iter()
+        .filter(|stress| stress.status == "fail")
+        .count();
     let recommendation_status = match failed {
         0 => "viable",
         1 => "conditional",
@@ -148,6 +171,7 @@ fn template(kind: ScenarioKind) -> Template {
             conversion_gain_pp: 3.8,
             uptake_pct: 65.0,
             margin_pct: 13.2,
+            baseline_margin_pct: 14.8,
             claims_index: 101.5,
             capital_ratio: 0.20,
             growth_score: 86,
@@ -161,6 +185,7 @@ fn template(kind: ScenarioKind) -> Template {
             conversion_gain_pp: 2.9,
             uptake_pct: 74.0,
             margin_pct: 7.3,
+            baseline_margin_pct: 14.8,
             claims_index: 100.0,
             capital_ratio: 0.26,
             growth_score: 76,
@@ -174,6 +199,7 @@ fn template(kind: ScenarioKind) -> Template {
             conversion_gain_pp: 2.1,
             uptake_pct: 83.0,
             margin_pct: 11.4,
+            baseline_margin_pct: 14.8,
             claims_index: 103.2,
             capital_ratio: 0.36,
             growth_score: 65,
@@ -183,10 +209,53 @@ fn template(kind: ScenarioKind) -> Template {
             confidence_score: 55,
             narrative: "Potential proposition value, but delivery is slower and the evidence does not show benefits as the primary loss driver.",
         },
+        ScenarioKind::RaFeeRestructure => Template {
+            conversion_gain_pp: 4.4,
+            uptake_pct: 71.0,
+            margin_pct: 5.9,
+            baseline_margin_pct: 8.6,
+            claims_index: 100.0,
+            capital_ratio: 0.09,
+            growth_score: 88,
+            profitability_score: 52,
+            customer_score: 91,
+            delivery_score: 66,
+            confidence_score: 79,
+            narrative: "Directly closes the diagnosed effective-annual-cost gap. It is the strongest growth response, but it permanently resets margin on the existing book as well as new business.",
+        },
+        ScenarioKind::RaTransferTurnaround => Template {
+            conversion_gain_pp: 3.1,
+            uptake_pct: 78.0,
+            margin_pct: 8.4,
+            baseline_margin_pct: 8.6,
+            claims_index: 100.0,
+            capital_ratio: 0.06,
+            growth_score: 74,
+            profitability_score: 81,
+            customer_score: 83,
+            delivery_score: 58,
+            confidence_score: 72,
+            narrative: "Attacks the Section 14 transfer turnaround gap without repricing. It protects margin, but it is an operations programme rather than a product change and lands more slowly.",
+        },
+        ScenarioKind::RaFundRangeExpansion => Template {
+            conversion_gain_pp: 1.4,
+            uptake_pct: 61.0,
+            margin_pct: 8.5,
+            baseline_margin_pct: 8.6,
+            claims_index: 100.0,
+            capital_ratio: 0.05,
+            growth_score: 46,
+            profitability_score: 77,
+            customer_score: 62,
+            delivery_score: 71,
+            confidence_score: 44,
+            narrative: "Cheap to deliver, but the evidence ranks fund choice well below cost and transfer speed as a loss driver. Expect a limited share response.",
+        },
         ScenarioKind::ObserveOnly => Template {
             conversion_gain_pp: 0.5,
             uptake_pct: 82.0,
             margin_pct: 14.9,
+            baseline_margin_pct: 14.8,
             claims_index: 100.0,
             capital_ratio: 0.47,
             growth_score: 28,
@@ -240,7 +309,11 @@ fn stress_results(kind: ScenarioKind, margin_pct: f64, claims_index: f64) -> Vec
         ScenarioKind::BenefitRewardsBundle => {
             results.push(stress(
                 "Claims and utilisation",
-                if claims_index <= 102.0 { "pass" } else { "review" },
+                if claims_index <= 102.0 {
+                    "pass"
+                } else {
+                    "review"
+                },
                 "Additional behavioural and utilisation evidence is required.",
             ));
             results.push(stress(
@@ -252,6 +325,57 @@ fn stress_results(kind: ScenarioKind, margin_pct: f64, claims_index: f64) -> Vec
                 "Customer clarity",
                 "review",
                 "Benefit conditions require consumer testing and plain-language review.",
+            ));
+        }
+        ScenarioKind::RaFeeRestructure => {
+            results.push(stress(
+                "Margin resilience",
+                if margin_pct >= 6.0 { "pass" } else { "fail" },
+                "The restructure holds above the savings-business margin floor used in this demonstration, with little headroom.",
+            ));
+            results.push(stress(
+                "Existing book repricing",
+                "review",
+                "Applying the new fee basis to in-force policies is required for fair treatment, and materially widens the cost of the response.",
+            ));
+            results.push(stress(
+                "Competitor response",
+                "review",
+                "The leading competitor retains room to price below the proposed basis.",
+            ));
+        }
+        ScenarioKind::RaTransferTurnaround => {
+            results.push(stress(
+                "Margin resilience",
+                if margin_pct >= 6.0 { "pass" } else { "fail" },
+                "The response is operational, so the new-business margin is largely preserved.",
+            ));
+            results.push(stress(
+                "Delivery capacity",
+                "review",
+                "The turnaround target depends on transfer administration capacity and third-party fund-house response times.",
+            ));
+            results.push(stress(
+                "Residual cost gap",
+                "fail",
+                "Faster transfers do not close the diagnosed effective-annual-cost gap, which remains the largest single deficit.",
+            ));
+        }
+        ScenarioKind::RaFundRangeExpansion => {
+            results.push(stress(
+                "Evidence strength",
+                "fail",
+                "Fund choice ranks below cost and transfer speed in the diagnosed loss drivers, so the expected share response is weak.",
+            ));
+            results.push(stress(
+                "Reg 28 and due diligence",
+                "review",
+                "Each added portfolio requires Regulation 28 compliance and manager due diligence.",
+            ));
+            results.push(stress(
+                "Residual cost gap",
+                "fail",
+                "The response leaves both the effective-annual-cost and transfer-turnaround gaps fully open.",
             ));
         }
         ScenarioKind::ObserveOnly => {
@@ -322,6 +446,18 @@ mod tests {
             confidence_pct: 80.0,
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-01-01T00:00:00Z".to_string(),
+            product_line_id: Some("individual_life_risk".to_string()),
+            annual_quoted_premium_m: 2_187.0,
+        }
+    }
+
+    fn ra_case() -> MarketCase {
+        MarketCase {
+            id: "MS-RA-TEST".to_string(),
+            product_line_id: Some("retirement_annuity".to_string()),
+            annual_quoted_premium_m: 1_460.0,
+            conversion_current_pct: 19.2,
+            ..demo_case()
         }
     }
 
@@ -339,6 +475,101 @@ mod tests {
 
         assert_eq!(evaluation.recommendation_status, "viable");
         assert!(evaluation.metrics.iter().any(|metric| metric.key == "vnb"));
+    }
+
+    fn evaluate_kind(case: &MarketCase, kind: ScenarioKind) -> ScenarioEvaluation {
+        evaluate(
+            case,
+            EvaluateScenarioRequest {
+                case_id: case.id.clone(),
+                kind,
+                overrides: Default::default(),
+            },
+        )
+        .expect("scenario should evaluate")
+    }
+
+    fn metric_value(evaluation: &ScenarioEvaluation, key: &str) -> f64 {
+        evaluation
+            .metrics
+            .iter()
+            .find(|metric| metric.key == key)
+            .unwrap_or_else(|| panic!("metric {key} should be present"))
+            .scenario
+    }
+
+    /// Golden numbers. These values reach a product committee, so a refactor
+    /// that moves them should fail loudly rather than pass quietly.
+    #[test]
+    fn ra_fee_restructure_economics_are_stable() {
+        let evaluation = evaluate_kind(&ra_case(), ScenarioKind::RaFeeRestructure);
+
+        assert_eq!(evaluation.recommendation_status, "conditional");
+        assert!((metric_value(&evaluation, "conversion") - 23.6).abs() < 1e-6);
+        assert!((metric_value(&evaluation, "nbp") - 45.6104).abs() < 1e-4);
+        assert!((metric_value(&evaluation, "vnb") - 2.6910136).abs() < 1e-4);
+        assert!((metric_value(&evaluation, "capital") - 4.104936).abs() < 1e-4);
+    }
+
+    #[test]
+    fn ra_fund_range_expansion_is_not_preferred() {
+        let evaluation = evaluate_kind(&ra_case(), ScenarioKind::RaFundRangeExpansion);
+        assert_eq!(evaluation.recommendation_status, "not_preferred");
+    }
+
+    #[test]
+    fn transfer_turnaround_protects_margin_better_than_fee_restructure() {
+        let ra_case = ra_case();
+        let fee = evaluate_kind(&ra_case, ScenarioKind::RaFeeRestructure);
+        let transfer = evaluate_kind(&ra_case, ScenarioKind::RaTransferTurnaround);
+
+        assert!(metric_value(&transfer, "margin") > metric_value(&fee, "margin"));
+        assert!(metric_value(&fee, "nbp") > metric_value(&transfer, "nbp"));
+    }
+
+    /// Scenario sizing must follow the case, not a global life-risk constant.
+    #[test]
+    fn uplift_scales_with_the_case_premium_base() {
+        let mut small = ra_case();
+        small.annual_quoted_premium_m = 1_000.0;
+        let mut large = ra_case();
+        large.annual_quoted_premium_m = 2_000.0;
+
+        let small_uplift = metric_value(
+            &evaluate_kind(&small, ScenarioKind::RaFeeRestructure),
+            "nbp",
+        );
+        let large_uplift = metric_value(
+            &evaluate_kind(&large, ScenarioKind::RaFeeRestructure),
+            "nbp",
+        );
+
+        assert!((large_uplift - small_uplift * 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn life_risk_template_is_rejected_for_a_retirement_annuity_case() {
+        let result = evaluate(
+            &ra_case(),
+            EvaluateScenarioRequest {
+                case_id: "MS-RA-TEST".to_string(),
+                kind: ScenarioKind::RapidUnderwriting,
+                overrides: Default::default(),
+            },
+        );
+
+        assert!(
+            result.is_err(),
+            "cross-product-line template must be refused"
+        );
+    }
+
+    #[test]
+    fn observe_only_applies_to_any_product_line() {
+        for case in [demo_case(), ra_case()] {
+            let evaluation = evaluate_kind(&case, ScenarioKind::ObserveOnly);
+            assert_eq!(evaluation.recommendation_status, "not_preferred");
+        }
     }
 
     #[test]
