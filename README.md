@@ -64,7 +64,7 @@ Open `http://localhost:8080`.
 
 Requirements:
 
-- Rust 1.85 or newer (the 2024 edition minimum).
+- Rust 1.88 or newer (the release where let chains stabilised).
 - A C toolchain required by SQLite dependencies on some platforms.
 
 ```bash
@@ -208,4 +208,13 @@ Position scoring is a deterministic demonstration model. It ranks providers rela
 
 ## Repository status
 
-This proof of concept now compiles, lints and tests locally, and both are enforced in CI. Two pre-existing CI blockers were fixed along the way: `Cargo.toml` pinned `rust-version = "1.97"`, ahead of released stable, so `cargo build` refused to run at all; and `cargo fmt --check` failed on the original tree. `Cargo.lock` is now committed for reproducible builds. See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
+This proof of concept now compiles, lints and tests, and all three are enforced in CI. Every CI run before this branch failed; this is the first green one.
+
+Two pre-existing CI blockers were fixed along the way:
+
+- `cargo clippy -D warnings` failed on a collapsible `if let` in `src/db.rs`, now written as a let chain.
+- `cargo fmt --check` failed on the original tree.
+
+`rust-version` was also corrected. It was pinned to `1.97`, which is roughly current stable rather than what the crate actually needs, and an MSRV that high is what let clippy demand a let chain in the first place. It is now `1.88`, the release where let chains stabilised, which is the oldest compiler this crate genuinely supports.
+
+`Cargo.lock` is now committed for reproducible builds. See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
