@@ -247,6 +247,17 @@ pub struct AdvanceApprovalRequest {
 // Competitive intelligence
 // ---------------------------------------------------------------------------
 
+/// Storage units are machine-shaped (`zar_millions`); reports are read by people
+/// who never see the schema, so they are rendered through this.
+pub fn unit_label(unit: &str) -> &str {
+    match unit {
+        "percent" => "%",
+        "zar" => "ZAR",
+        "zar_millions" => "ZAR millions",
+        other => other,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct ProductLine {
     pub id: String,
@@ -349,6 +360,8 @@ pub struct FeatureComparison {
 pub struct Standing {
     pub competitor_id: String,
     pub competitor_name: String,
+    /// Chart axes and table headers need a name that fits in a column.
+    pub short_name: String,
     pub is_us: bool,
     pub position_score: f64,
     pub rank: i64,

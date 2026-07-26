@@ -151,6 +151,9 @@ pub fn build_matrix(
                 competitor_name: competitor
                     .map(|competitor| competitor.name.clone())
                     .unwrap_or_default(),
+                short_name: competitor
+                    .map(|competitor| competitor.short_name.clone())
+                    .unwrap_or_default(),
                 is_us: competitor
                     .map(|competitor| competitor.is_us == 1)
                     .unwrap_or(false),
