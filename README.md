@@ -21,7 +21,8 @@ Competitive intelligence:
 - Point-in-time comparison, so past standings are recomputed by the same rules rather than recorded separately.
 - Position time series per product line.
 - Scheduled monitor that recomputes position, detects drift against thresholds, raises signals, and opens a case when the drift is material.
-- `monitor` binary that writes a Markdown competitive-position report and exits non-zero on a breach, for scheduled use in CI.
+- `monitor` binary that writes a Markdown report and a self-contained HTML report, and exits non-zero on a breach, for scheduled use in CI.
+- Reports written for non-technical readers: a plain-language summary, the full comparison with sources, and a stated list of what the numbers do not tell you.
 
 Governed response:
 
@@ -129,10 +130,24 @@ non-zero when our position has moved against us by more than the configured
 threshold**. Code CI answers "does it still build"; this answers "are we still
 competitive".
 
-Flags: `--report <path>`, `--trigger <name>`, `--no-signals` (report without
-creating signals or cases), `--allow-breach` (report without failing).
+It also writes a self-contained HTML report for people who will never open a
+terminal:
 
-`.github/workflows/competitive-watch.yml` runs it daily. Note that this
+```bash
+cargo run --bin monitor -- --html position.html
+```
+
+One file, no external requests, no install — it opens in any browser, prints
+cleanly, and survives being emailed or dropped on a shared drive. It leads with a
+plain-language summary, shows the full comparison, and states its own limits.
+
+Flags: `--report <path>` (Markdown), `--html <path>`, `--trigger <name>`,
+`--no-signals` (report without creating signals or cases), `--allow-breach`
+(report without failing).
+
+`.github/workflows/competitive-watch.yml` runs it daily, publishes the Markdown
+into the run summary, and deploys the HTML report to GitHub Pages so it has a
+fixed URL to bookmark. Note that this
 repository has no persistent database, so each CI run reseeds and re-detects the
 same seeded decline: it demonstrates the mechanism rather than tracking real
 drift. Pointed at a persistent database, each run compares against the position
@@ -146,6 +161,7 @@ recorded by the previous run and the exit code becomes meaningful.
 - [`docs/WHY_RUST.md`](docs/WHY_RUST.md) — where Rust creates value and where it does not.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system components and trust boundaries.
 - [`docs/SPONSOR_DEMO_TALK_TRACK.md`](docs/SPONSOR_DEMO_TALK_TRACK.md) — guided sponsorship demonstration.
+- [`docs/OPERATING_MODEL.md`](docs/OPERATING_MODEL.md) — where this lives, who owns it, and what would make it fail.
 - [`docs/PILOT_BACKLOG.md`](docs/PILOT_BACKLOG.md) — prioritised engineering backlog.
 
 ## Project structure
@@ -166,12 +182,14 @@ src/
   services/
     comparison.rs         Competitor comparison and scoring
     monitor.rs            Drift detection and case opening
+    report.rs             Markdown and self-contained HTML reports
     orchestrator.rs       Agent workflow
     scenario_engine.rs    Deterministic response model
     governance.rs         Control augmentation
 tests/
   api_workflow.rs         End-to-end API tests
   competitive_regression.rs  Pinned competitive baseline
+  report_output.rs        Report content and self-containment
 static/
   index.html              API-backed sponsor interface
 migrations/
@@ -184,6 +202,7 @@ docs/
   WHY_RUST.md
   ARCHITECTURE.md
   API.md
+  OPERATING_MODEL.md
   PROJECT_STATUS.md
   SPONSOR_DEMO_TALK_TRACK.md
   PILOT_BACKLOG.md
