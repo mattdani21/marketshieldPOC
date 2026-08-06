@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 # 1.85 is the 2024 edition minimum; 1.88 is where let chains stabilised, which
 # this crate uses. Nothing here needs a newer compiler than that.
-rust-version = "1.88"
+rust-version = "1.94"
 description = "Agentic market-share defence platform for regulated life and investment product teams"
 license = "Proprietary"
 publish = false
