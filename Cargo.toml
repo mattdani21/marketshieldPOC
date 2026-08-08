@@ -2,7 +2,9 @@
 name = "marketshield"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.97"
+# 1.85 is the 2024 edition minimum; 1.88 is where let chains stabilised, which
+# this crate uses. Nothing here needs a newer compiler than that.
+rust-version = "1.94"
 description = "Agentic market-share defence platform for regulated life and investment product teams"
 license = "Proprietary"
 publish = false
@@ -17,7 +19,7 @@ tower-http = { version = "0.7.0", features = ["cors", "fs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-time = { version = "0.3", features = ["formatting", "serde", "serde-well-known"] }
+time = { version = "0.3", features = ["formatting", "parsing", "serde", "serde-well-known"] }
 thiserror = "2"
 
 [dev-dependencies]

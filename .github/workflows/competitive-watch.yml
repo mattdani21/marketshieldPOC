@@ -1,0 +1,107 @@
+name: competitive-watch
+
+# The standing check. Code CI answers "does it still build"; this answers "are
+# we still competitive". A failing run means our position moved against us by
+# more than the configured threshold.
+#
+# It publishes two things: a Markdown report into the run summary (for whoever
+# is looking at the build) and a self-contained HTML report to GitHub Pages (for
+# the product actuaries and committees who will never open Actions).
+#
+# Scope note: this repository has no persistent database, so each run seeds a
+# fresh one and re-detects the same seeded decline. That demonstrates the
+# mechanism rather than tracking real drift. Pointed at the pilot's persistent
+# database via MARKETSHIELD_DATABASE_URL, the exit code becomes meaningful:
+# each run compares against the position recorded by the previous run.
+# Pull requests therefore publish the report without failing the build.
+on:
+  schedule:
+    # 05:00 UTC daily, ahead of the South African business day.
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "src/**"
+      - "migrations/**"
+      - ".github/workflows/competitive-watch.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two runs publish the position report at once.
+concurrency:
+  group: competitive-watch
+  cancel-in-progress: false
+
+jobs:
+  position:
+    runs-on: ubuntu-latest
+    outputs:
+      breached: ${{ steps.monitor.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the monitor
+        run: cargo build --bin monitor
+
+      - name: Check competitive position
+        id: monitor
+        # A breach is the signal, not an infrastructure failure, so the reports
+        # are published either way and the outcome is acted on at the end.
+        continue-on-error: true
+        env:
+          MARKETSHIELD_DATABASE_URL: sqlite://data/marketshield.db
+          # On a pull request the seeded decline is expected, so it is reported
+          # rather than enforced.
+          ALLOW_BREACH: ${{ github.event_name == 'pull_request' && '--allow-breach' || '' }}
+        run: |
+          mkdir -p data site
+          cargo run --quiet --bin monitor -- \
+            --report competitive-position.md \
+            --html site/index.html \
+            --trigger "github_actions_${{ github.event_name }}" \
+            $ALLOW_BREACH
+
+      - name: Publish report to the run summary
+        if: always()
+        run: cat competitive-position.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitive-position-report
+          path: |
+            competitive-position.md
+            site/index.html
+
+      - name: Package the HTML report for Pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Fail when the position moved against us
+        if: steps.monitor.outcome == 'failure'
+        run: |
+          echo "::error::Competitive position breached a monitoring threshold. See the run summary."
+          exit 1
+
+  # Separate job so the report still reaches its readers on a breach, which is
+  # exactly when they most need to see it.
+  publish:
+    needs: position
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
