@@ -6,7 +6,9 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
-        Approval, AuditEvent, CaseDetail, EvidenceItem, GovernanceCheck, Hypothesis, MarketCase,
+        Approval, AuditEvent, CaseDetail, ComparisonMatrix, Competitor, EvidenceItem,
+        FeatureDefinition, FeatureObservation, GovernanceCheck, Hypothesis, MarketCase,
+        MonitorThreshold, PositionSnapshot, ProductLine, ProductLineCommercials,
         ScenarioEvaluation, Signal,
     },
 };
@@ -19,6 +21,10 @@ pub struct Repository {
 impl Repository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
+    }
+
+    pub(crate) fn pool(&self) -> &SqlitePool {
+        &self.pool
     }
 
     pub async fn seed_demo_data(&self) -> Result<(), AppError> {
@@ -263,10 +269,35 @@ impl Repository {
 
     pub async fn list_signals(&self) -> Result<Vec<Signal>, AppError> {
         Ok(query_as::<_, Signal>(
-            "SELECT id, title, description, severity, source_classification, observed_at FROM signals ORDER BY observed_at DESC",
+            "SELECT id, title, description, severity, source_classification, observed_at, product_line_id FROM signals ORDER BY observed_at DESC",
         )
         .fetch_all(&self.pool)
         .await?)
+    }
+
+    pub async fn create_signal(
+        &self,
+        title: &str,
+        description: &str,
+        severity: &str,
+        source_classification: &str,
+        product_line_id: Option<&str>,
+    ) -> Result<String, AppError> {
+        let id = Uuid::new_v4().to_string();
+        query(
+            "INSERT INTO signals (id, title, description, severity, source_classification, observed_at, product_line_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(title)
+        .bind(description)
+        .bind(severity)
+        .bind(source_classification)
+        .bind(now_rfc3339()?)
+        .bind(product_line_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(id)
     }
 
     pub async fn list_cases(&self) -> Result<Vec<MarketCase>, AppError> {
@@ -474,6 +505,378 @@ impl Repository {
         Ok(events)
     }
 
+    // -----------------------------------------------------------------
+    // Case construction
+    // -----------------------------------------------------------------
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn insert_case(
+        &self,
+        id: &str,
+        title: &str,
+        product: &str,
+        channel: &str,
+        segment: &str,
+        product_line_id: &str,
+        share_change_pp: f64,
+        annual_premium_at_risk_m: f64,
+        annual_quoted_premium_m: f64,
+        conversion_baseline_pct: f64,
+        conversion_current_pct: f64,
+        confidence_pct: f64,
+    ) -> Result<(), AppError> {
+        let now = now_rfc3339()?;
+        query(
+            r#"
+            INSERT INTO market_cases (
+                id, title, status, product, channel, segment, share_change_pp,
+                annual_premium_at_risk_m, conversion_baseline_pct,
+                conversion_current_pct, confidence_pct, created_at, updated_at,
+                product_line_id, annual_quoted_premium_m
+            ) VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(id)
+        .bind(title)
+        .bind(product)
+        .bind(channel)
+        .bind(segment)
+        .bind(share_change_pp)
+        .bind(annual_premium_at_risk_m)
+        .bind(conversion_baseline_pct)
+        .bind(conversion_current_pct)
+        .bind(confidence_pct)
+        .bind(&now)
+        .bind(&now)
+        .bind(product_line_id)
+        .bind(annual_quoted_premium_m)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_hypothesis(
+        &self,
+        case_id: &str,
+        rank: i64,
+        name: &str,
+        explanation: &str,
+        confidence_pct: f64,
+    ) -> Result<(), AppError> {
+        query(
+            "INSERT INTO hypotheses (id, case_id, rank, name, explanation, confidence_pct) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(case_id)
+        .bind(rank)
+        .bind(name)
+        .bind(explanation)
+        .bind(confidence_pct)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_evidence(
+        &self,
+        case_id: &str,
+        label: &str,
+        detail: &str,
+        source_classification: &str,
+        admission_status: &str,
+    ) -> Result<(), AppError> {
+        query(
+            "INSERT INTO evidence_items (id, case_id, label, detail, source_classification, admission_status) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(case_id)
+        .bind(label)
+        .bind(detail)
+        .bind(source_classification)
+        .bind(admission_status)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_governance_check(
+        &self,
+        case_id: &str,
+        code: &str,
+        name: &str,
+        status: &str,
+        rationale: &str,
+    ) -> Result<(), AppError> {
+        query(
+            "INSERT INTO governance_checks (id, case_id, code, name, status, rationale) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(case_id)
+        .bind(code)
+        .bind(name)
+        .bind(status)
+        .bind(rationale)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_approval(
+        &self,
+        case_id: &str,
+        sequence: i64,
+        role_name: &str,
+        status: &str,
+    ) -> Result<(), AppError> {
+        query("INSERT INTO approvals (id, case_id, sequence, role_name, status) VALUES (?, ?, ?, ?, ?)")
+            .bind(Uuid::new_v4().to_string())
+            .bind(case_id)
+            .bind(sequence)
+            .bind(role_name)
+            .bind(status)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------
+    // Competitive intelligence
+    // -----------------------------------------------------------------
+
+    pub async fn list_product_lines(&self) -> Result<Vec<ProductLine>, AppError> {
+        Ok(
+            query_as::<_, ProductLine>("SELECT * FROM product_lines ORDER BY name")
+                .fetch_all(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn get_product_line(&self, id: &str) -> Result<ProductLine, AppError> {
+        query_as::<_, ProductLine>("SELECT * FROM product_lines WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("product line {id}")))
+    }
+
+    pub async fn get_product_line_commercials(
+        &self,
+        product_line_id: &str,
+    ) -> Result<ProductLineCommercials, AppError> {
+        query_as::<_, ProductLineCommercials>(
+            "SELECT * FROM product_line_commercials WHERE product_line_id = ?",
+        )
+        .bind(product_line_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "commercial context for product line {product_line_id}"
+            ))
+        })
+    }
+
+    pub async fn list_competitors(&self) -> Result<Vec<Competitor>, AppError> {
+        Ok(
+            query_as::<_, Competitor>("SELECT * FROM competitors ORDER BY is_us DESC, name")
+                .fetch_all(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn list_feature_definitions(
+        &self,
+        product_line_id: &str,
+    ) -> Result<Vec<FeatureDefinition>, AppError> {
+        Ok(query_as::<_, FeatureDefinition>(
+            "SELECT * FROM feature_definitions WHERE product_line_id = ? ORDER BY display_order",
+        )
+        .bind(product_line_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Every observation for a line, current and superseded, oldest first. The
+    /// comparison engine needs the history to reconstruct competitor moves.
+    pub async fn list_feature_observations(
+        &self,
+        product_line_id: &str,
+    ) -> Result<Vec<FeatureObservation>, AppError> {
+        Ok(query_as::<_, FeatureObservation>(
+            r#"
+            SELECT observations.*
+            FROM feature_observations AS observations
+            JOIN feature_definitions AS definitions ON definitions.id = observations.feature_id
+            WHERE definitions.product_line_id = ?
+            ORDER BY observations.observed_at
+            "#,
+        )
+        .bind(product_line_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Supersedes the provider's current value and appends the new one, so the
+    /// change is preserved with its own provenance.
+    pub async fn record_observation(
+        &self,
+        competitor_id: &str,
+        feature_id: &str,
+        value: f64,
+        source_classification: &str,
+        source_reference: &str,
+    ) -> Result<String, AppError> {
+        let now = now_rfc3339()?;
+        let mut transaction = self.pool.begin().await?;
+
+        query(
+            "UPDATE feature_observations SET superseded_at = ? WHERE competitor_id = ? AND feature_id = ? AND superseded_at IS NULL",
+        )
+        .bind(&now)
+        .bind(competitor_id)
+        .bind(feature_id)
+        .execute(&mut *transaction)
+        .await?;
+
+        let id = Uuid::new_v4().to_string();
+        query(
+            "INSERT INTO feature_observations (id, competitor_id, feature_id, value, source_classification, source_reference, observed_at, superseded_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
+        )
+        .bind(&id)
+        .bind(competitor_id)
+        .bind(feature_id)
+        .bind(value)
+        .bind(source_classification)
+        .bind(source_reference)
+        .bind(&now)
+        .execute(&mut *transaction)
+        .await?;
+
+        transaction.commit().await?;
+        Ok(id)
+    }
+
+    pub async fn latest_position_snapshot(
+        &self,
+        product_line_id: &str,
+    ) -> Result<Option<PositionSnapshot>, AppError> {
+        Ok(query_as::<_, PositionSnapshot>(
+            "SELECT * FROM position_snapshots WHERE product_line_id = ? ORDER BY captured_at DESC LIMIT 1",
+        )
+        .bind(product_line_id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub async fn list_position_snapshots(
+        &self,
+        product_line_id: &str,
+    ) -> Result<Vec<PositionSnapshot>, AppError> {
+        Ok(query_as::<_, PositionSnapshot>(
+            "SELECT * FROM position_snapshots WHERE product_line_id = ? ORDER BY captured_at",
+        )
+        .bind(product_line_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    /// Records the standing a comparison produced. Taking the matrix itself
+    /// keeps the snapshot and the comparison that produced it in step.
+    pub async fn save_position_snapshot(
+        &self,
+        matrix: &ComparisonMatrix,
+        captured_at: &str,
+    ) -> Result<String, AppError> {
+        let id = Uuid::new_v4().to_string();
+        query(
+            "INSERT INTO position_snapshots (id, product_line_id, captured_at, position_score, our_rank, provider_count, leader_competitor_id, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(&matrix.product_line.id)
+        .bind(captured_at)
+        .bind(matrix.our_position.position_score)
+        .bind(matrix.our_position.rank)
+        .bind(matrix.our_position.provider_count)
+        .bind(&matrix.our_position.leader_competitor_id)
+        .bind(
+            serde_json::to_string(&matrix.standings)
+                .map_err(|error| AppError::Internal(error.to_string()))?,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(id)
+    }
+
+    /// Thresholds for a line, falling back to rows with a NULL line (global).
+    pub async fn list_monitor_thresholds(
+        &self,
+        product_line_id: &str,
+    ) -> Result<Vec<MonitorThreshold>, AppError> {
+        Ok(query_as::<_, MonitorThreshold>(
+            "SELECT * FROM monitor_thresholds WHERE product_line_id = ? OR product_line_id IS NULL ORDER BY metric",
+        )
+        .bind(product_line_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    pub async fn open_case_exists_for_product_line(
+        &self,
+        product_line_id: &str,
+    ) -> Result<bool, AppError> {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM market_cases WHERE product_line_id = ? AND status = 'open'",
+        )
+        .bind(product_line_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(count > 0)
+    }
+
+    pub async fn next_case_id(&self) -> Result<String, AppError> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM market_cases")
+            .fetch_one(&self.pool)
+            .await?;
+
+        // The seeded case is MS-2026-017, so the next opened case is 018.
+        Ok(format!("MS-2026-{:03}", count + 17))
+    }
+
+    pub async fn monitor_run_count(&self) -> Result<i64, AppError> {
+        Ok(sqlx::query_scalar("SELECT COUNT(*) FROM monitor_runs")
+            .fetch_one(&self.pool)
+            .await?)
+    }
+
+    pub async fn save_monitor_run<T: Serialize>(
+        &self,
+        started_at: &str,
+        trigger: &str,
+        breached: bool,
+        result: &T,
+    ) -> Result<String, AppError> {
+        let id = Uuid::new_v4().to_string();
+        query(
+            "INSERT INTO monitor_runs (id, started_at, trigger, breached, result_json) VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(started_at)
+        .bind(trigger)
+        .bind(i64::from(breached))
+        .bind(serde_json::to_string(result).map_err(|error| AppError::Internal(error.to_string()))?)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(id)
+    }
+
     pub async fn record_audit<T: Serialize>(
         &self,
         case_id: Option<&str>,
@@ -501,6 +904,12 @@ impl Repository {
 
 pub fn now_rfc3339() -> Result<String, AppError> {
     OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .map_err(|error| AppError::Internal(format!("failed to format timestamp: {error}")))
+}
+
+pub fn days_ago_rfc3339(days: i64) -> Result<String, AppError> {
+    (OffsetDateTime::now_utc() - time::Duration::days(days))
         .format(&Rfc3339)
         .map_err(|error| AppError::Internal(format!("failed to format timestamp: {error}")))
 }
