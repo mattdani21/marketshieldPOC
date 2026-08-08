@@ -88,13 +88,7 @@ pub fn evaluate(
             vnb_uplift_m,
             "zar_millions",
         ),
-        metric(
-            "margin",
-            "New-business margin",
-            14.8,
-            margin_pct,
-            "percent",
-        ),
+        metric("margin", "New-business margin", 14.8, margin_pct, "percent"),
         metric(
             "capital",
             "Initial capital strain",
@@ -112,7 +106,10 @@ pub fn evaluate(
     ];
 
     let stresses = stress_results(request.kind, margin_pct, claims_index);
-    let failed = stresses.iter().filter(|stress| stress.status == "fail").count();
+    let failed = stresses
+        .iter()
+        .filter(|stress| stress.status == "fail")
+        .count();
     let recommendation_status = match failed {
         0 => "viable",
         1 => "conditional",
@@ -240,7 +237,11 @@ fn stress_results(kind: ScenarioKind, margin_pct: f64, claims_index: f64) -> Vec
         ScenarioKind::BenefitRewardsBundle => {
             results.push(stress(
                 "Claims and utilisation",
-                if claims_index <= 102.0 { "pass" } else { "review" },
+                if claims_index <= 102.0 {
+                    "pass"
+                } else {
+                    "review"
+                },
                 "Additional behavioural and utilisation evidence is required.",
             ));
             results.push(stress(

@@ -6,9 +6,7 @@ use crate::{
     models::{DashboardSummary, Signal},
 };
 
-pub async fn dashboard(
-    State(state): State<AppState>,
-) -> Result<Json<DashboardSummary>, AppError> {
+pub async fn dashboard(State(state): State<AppState>) -> Result<Json<DashboardSummary>, AppError> {
     let cases = state.repository.list_cases().await?;
     let primary_case = cases
         .first()

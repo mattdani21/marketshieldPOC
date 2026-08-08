@@ -270,11 +270,11 @@ impl Repository {
     }
 
     pub async fn list_cases(&self) -> Result<Vec<MarketCase>, AppError> {
-        Ok(query_as::<_, MarketCase>(
-            "SELECT * FROM market_cases ORDER BY updated_at DESC",
+        Ok(
+            query_as::<_, MarketCase>("SELECT * FROM market_cases ORDER BY updated_at DESC")
+                .fetch_all(&self.pool)
+                .await?,
         )
-        .fetch_all(&self.pool)
-        .await?)
     }
 
     pub async fn get_case(&self, case_id: &str) -> Result<MarketCase, AppError> {
@@ -287,12 +287,11 @@ impl Repository {
 
     pub async fn get_case_detail(&self, case_id: &str) -> Result<CaseDetail, AppError> {
         let case = self.get_case(case_id).await?;
-        let hypotheses = query_as::<_, Hypothesis>(
-            "SELECT * FROM hypotheses WHERE case_id = ? ORDER BY rank",
-        )
-        .bind(case_id)
-        .fetch_all(&self.pool)
-        .await?;
+        let hypotheses =
+            query_as::<_, Hypothesis>("SELECT * FROM hypotheses WHERE case_id = ? ORDER BY rank")
+                .bind(case_id)
+                .fetch_all(&self.pool)
+                .await?;
         let evidence = query_as::<_, EvidenceItem>(
             "SELECT * FROM evidence_items WHERE case_id = ? ORDER BY rowid",
         )
@@ -305,12 +304,11 @@ impl Repository {
         .bind(case_id)
         .fetch_all(&self.pool)
         .await?;
-        let approvals = query_as::<_, Approval>(
-            "SELECT * FROM approvals WHERE case_id = ? ORDER BY sequence",
-        )
-        .bind(case_id)
-        .fetch_all(&self.pool)
-        .await?;
+        let approvals =
+            query_as::<_, Approval>("SELECT * FROM approvals WHERE case_id = ? ORDER BY sequence")
+                .bind(case_id)
+                .fetch_all(&self.pool)
+                .await?;
 
         Ok(CaseDetail {
             case,
@@ -342,10 +340,7 @@ impl Repository {
         Ok(id)
     }
 
-    pub async fn save_scenario(
-        &self,
-        evaluation: &ScenarioEvaluation,
-    ) -> Result<(), AppError> {
+    pub async fn save_scenario(&self, evaluation: &ScenarioEvaluation) -> Result<(), AppError> {
         query(
             "INSERT INTO scenario_evaluations (id, case_id, kind, result_json, created_at) VALUES (?, ?, ?, ?, ?)",
         )
@@ -364,12 +359,11 @@ impl Repository {
     }
 
     pub async fn get_scenario(&self, scenario_id: &str) -> Result<ScenarioEvaluation, AppError> {
-        let json: Option<String> = sqlx::query_scalar(
-            "SELECT result_json FROM scenario_evaluations WHERE id = ?",
-        )
-        .bind(scenario_id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let json: Option<String> =
+            sqlx::query_scalar("SELECT result_json FROM scenario_evaluations WHERE id = ?")
+                .bind(scenario_id)
+                .fetch_optional(&self.pool)
+                .await?;
 
         let json = json.ok_or_else(|| AppError::NotFound(format!("scenario {scenario_id}")))?;
         serde_json::from_str(&json).map_err(|error| AppError::Internal(error.to_string()))
@@ -414,7 +408,8 @@ impl Repository {
         notes: Option<&str>,
     ) -> Result<Vec<Approval>, AppError> {
         let pending = self.next_pending_approval(case_id).await?;
-        let pending = pending.ok_or_else(|| AppError::BadRequest("no pending approval remains".to_string()))?;
+        let pending = pending
+            .ok_or_else(|| AppError::BadRequest("no pending approval remains".to_string()))?;
         let final_status = match decision {
             "approve" => "approved",
             "reject" => "rejected",
@@ -449,15 +444,18 @@ impl Repository {
                 .await?;
         }
 
-        Ok(query_as::<_, Approval>(
-            "SELECT * FROM approvals WHERE case_id = ? ORDER BY sequence",
+        Ok(
+            query_as::<_, Approval>("SELECT * FROM approvals WHERE case_id = ? ORDER BY sequence")
+                .bind(case_id)
+                .fetch_all(&self.pool)
+                .await?,
         )
-        .bind(case_id)
-        .fetch_all(&self.pool)
-        .await?)
     }
 
-    pub async fn list_audit_events(&self, case_id: Option<&str>) -> Result<Vec<AuditEvent>, AppError> {
+    pub async fn list_audit_events(
+        &self,
+        case_id: Option<&str>,
+    ) -> Result<Vec<AuditEvent>, AppError> {
         let events = if let Some(case_id) = case_id {
             query_as::<_, AuditEvent>(
                 "SELECT * FROM audit_events WHERE case_id = ? ORDER BY created_at DESC LIMIT 100",

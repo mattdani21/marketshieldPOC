@@ -5,7 +5,10 @@ mod dashboard;
 mod health;
 mod scenarios;
 
-use axum::{Router, routing::{get, post}};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 use crate::AppState;
 
